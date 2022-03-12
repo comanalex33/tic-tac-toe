@@ -53,6 +53,16 @@ int checkWinner(char board[][4]) {
     return 0;
 }
 
+int checkBoardFull(char board[][4]){
+    for(int i = 0; i < 3; i++){
+        for(int j = 0; j < 3; j++){
+            if(board[i][j] == ' ') return 0;
+        }
+    }
+
+    return 1;
+}
+
 void printBoard(int fd, char board[][4], char message[])
 {
     char line[100];
@@ -162,7 +172,37 @@ int main(int argc, char *argv[])
             printBoard(newsockfd, board, "Ai castigat!");
             break;
         }
+
+        if((checkWinner(board) == 0) && (checkBoardFull(board) == 1)){
+            printf("Egalitate!\n");
+            printBoard(newsockfd, board, "Egalitate!");
+            break;
+        }
+
+        while(1) {
+            printf("Linie: ");scanf("%d", &line);
+            printf("Coloana: ");scanf("%d", &column);
+            if(checkPosition(line, column) == 0) {
+                printf("Pozitie invalida, incearca alta!\n");
+            } else if(emptyPosition(line, column, board) == 0) {
+                printf("Pozitie ocupata!\n");
+            } else
+                break;
+        }
+
+        applyMove(line, column, board, 'o');
+
+        if(checkWinner(board) == 1) {
+            printBoard(1, board, "Ai castigat!\n");
+            printBoard(newsockfd, board, "Ai pierdut!");
+            break;
+        }
+
+        printBoard(newsockfd, board, "");
     }
+
+    close(newsockfd);
+    close(sockfd);
 
     return 0;
 }

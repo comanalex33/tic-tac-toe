@@ -12,7 +12,7 @@ int readBoard(int fd)
    bzero(buffer, 100);
    read(fd, buffer, 100);
    printf("%s\n", buffer);
-   if (strstr(buffer, "Ai castigat") || strstr(buffer, "Ai pierdut"))
+   if (strstr(buffer, "Ai castigat") || strstr(buffer, "Ai pierdut") || strstr(buffer, "Egalitate"))
       return 0;
    return 1;
 }
