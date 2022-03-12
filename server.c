@@ -53,6 +53,22 @@ int checkWinner(char board[][4]) {
     return 0;
 }
 
+void printBoard(int fd, char board[][4], char message[])
+{
+    char line[100];
+    bzero(line, 100);
+    sprintf(line, "| %c | %c | %c |\n| %c | %c | %c |\n| %c | %c | %c |\n%s", 
+        board[0][0], board[0][1], board[0][2],
+        board[1][0], board[1][1], board[1][2],
+        board[2][0], board[2][1], board[2][2],
+        message);
+    write(fd, line, strlen(line));
+}
+
+void applyMove(int line, int column, char board[][4], char symbol) {
+    board[line - 1][column - 1] = symbol;
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd, newsockfd, newsockfd2, portno, clilen;
@@ -134,6 +150,17 @@ int main(int argc, char *argv[])
             strcpy(message, "Pozitie ocupata!");
             write(newsockfd, message, strlen(message));
             continue;
+        }
+
+        applyMove(line, column, board, 'x');
+
+        printBoard(1, board, "");
+        printf("\n");
+
+        if(checkWinner(board) == 2) {
+            printf("Ai pierdut!\n");
+            printBoard(newsockfd, board, "Ai castigat!");
+            break;
         }
     }
 
