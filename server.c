@@ -14,6 +14,20 @@ void initBoard(char board[][4])
             board[i][j] = ' ';
 }
 
+int checkPosition(int line, int column) {
+    if(line < 1 || line > 3)
+        return 0;
+    if(column < 1 || column > 3)
+        return 0;
+    return 1;
+}
+
+int emptyPosition(int line, int column, char board[][4]) {
+    if(board[line - 1][column - 1] == ' ')
+        return 1;
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd, newsockfd, newsockfd2, portno, clilen;
@@ -81,6 +95,20 @@ int main(int argc, char *argv[])
         if(read(newsockfd, &column, sizeof(int)) < 0) {
             perror("ERROR reading from socket");
             exit(1);
+        }
+
+        if(checkPosition(line, column) == 0) {
+            char message[100];
+            strcpy(message, "Pozitie invalida, incearca alta!");
+            write(newsockfd, message, strlen(message));
+            continue;
+        }
+
+        if(emptyPosition(line, column, board) == 0) {
+            char message[100];
+            strcpy(message, "Pozitie ocupata!");
+            write(newsockfd, message, strlen(message));
+            continue;
         }
     }
 
