@@ -6,9 +6,19 @@
 
 #include <string.h>
 
+int readBoard(int fd)
+{
+   char buffer[100];
+   bzero(buffer, 100);
+   read(fd, buffer, 100);
+   printf("%s\n", buffer);
+   if (strstr(buffer, "Ai castigat") || strstr(buffer, "Ai pierdut"))
+      return 0;
+   return 1;
+}
+
 int main(int argc, char *argv[])
 {
-   // PARTEA 1
    int sockfd, portno, n;
    struct sockaddr_in serv_addr;
    struct hostent *server;
@@ -51,6 +61,33 @@ int main(int argc, char *argv[])
       perror("ERROR connecting");
       exit(1);
    }
+
+   while (1)
+   {
+      bzero(buffer, 256);
+
+      int position;
+      printf("Linie: ");
+      scanf("%d", &position);
+      if (write(sockfd, &position, sizeof(int)) < 0)
+      {
+         perror("ERROR writing to socket");
+         exit(1);
+      }
+      printf("Coloana: ");
+      scanf("%d", &position);
+      if (write(sockfd, &position, sizeof(int)) < 0)
+      {
+         perror("ERROR writing to socket");
+         exit(1);
+      }
+
+      int final = readBoard(sockfd);
+      if (final == 0)
+         break;
+   }
+
+   close(sockfd);
 
    return 0;
 }
