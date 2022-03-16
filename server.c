@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <time.h>
 #include <netdb.h>
 #include <netinet/in.h>
-
 #include <string.h>
 
 int sockfd;
@@ -104,33 +103,23 @@ int checkPosition(int line, int column) {
     return 1;
 }
 
-int emptyPosition(int line, int column, char board[][4]) {
-    if(board[line - 1][column - 1] == ' ')
-        return 1;
-    return 0;
-}
-
-int checkWinner(char board[][4]) {
-    for(int i = 0; i < 3; i++) {
-        if(board[i][0] == board[i][1] && board[i][1] == board[i][2] && board[i][1] != ' ') {
-            if(board[i][0] == 'o')
-                return 1;
-            else
-                return 2;
+char checkWinner(char board[][4])
+{
+    for (int i = 0; i < 3; i++)
+    {
+        if (board[i][0] == board[i][1] && board[i][1] == board[i][2] && board[i][1] != ' ')
+        {
+            return board[i][0];
         }
-        if(board[0][i] == board[1][i] && board[1][i] == board[2][i] && board[1][i] != ' ') {
-           if(board[0][i] == 'o')
-                return 1;
-            else
-                return 2;
+        if (board[0][i] == board[1][i] && board[1][i] == board[2][i] && board[1][i] != ' ')
+        {
+            return board[0][i];
         }
     }
-    if((board[0][0] == board[1][1] && board[1][1] == board[2][2] && board[1][1] != ' ') ||
-       (board[0][2] == board[1][1] && board[1][1] == board[2][0] && board[1][1] != ' ')) {
-       if(board[1][1] == 'o')
-                return 1;
-            else
-                return 2;
+    if ((board[0][0] == board[1][1] && board[1][1] == board[2][2] && board[1][1] != ' ') ||
+        (board[0][2] == board[1][1] && board[1][1] == board[2][0] && board[1][1] != ' '))
+    {
+        return board[1][1];
     }
     return 0;
 }
@@ -157,16 +146,110 @@ void printBoard(int fd, char board[][4], char message[])
     write(fd, line, strlen(line));
 }
 
-void applyMove(int line, int column, char board[][4], char symbol) {
+/*
+    Function used to send the board to the client
+    At the beggining will send a code
+      0 - the game is not finished
+      1 - this player is the winner
+      2 - this player is the losser
+      3 - equality
+*/
+void sendBoard(int fd, char board[][4], int code)
+{
+    if(write(fd, &code, sizeof(int)) < 0) {
+        perror("ERROR writing to client");
+        exit(2);
+    }
+
+    char line[100];
+    bzero(line, 100);
+    sprintf(line, "| %c | %c | %c |\n| %c | %c | %c |\n| %c | %c | %c |\n",
+            board[0][0], board[0][1], board[0][2],
+            board[1][0], board[1][1], board[1][2],
+            board[2][0], board[2][1], board[2][2]);
+    if(write(fd, line, strlen(line)) < 0) {
+        perror("ERROR writing to client");
+        exit(2);
+    }
+}
+
+/*
+    This is used to handle current player's move
+    Steps:
+     - Read symbol from the player
+     - Check if this position is valid
+     - Apply move and check if this is the final of the game
+     - Send board to the other player
+*/
+void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char symbol)
+{
+    int line, column;
+
+    while (1)
+    {
+        if (read(currentPlayer, &line, sizeof(int)) < 0)
+        {
+            perror("ERROR reading from socket");
+            exit(1);
+        }
+        if (read(currentPlayer, &column, sizeof(int)) < 0)
+        {
+            perror("ERROR reading from socket");
+            exit(1);
+        }
+
+        if (checkPosition(line, column) == 0)
+        {
+            char message[100];
+            strcpy(message, "Pozitie invalida, incearca alta!\n");
+            int code = 0;
+            if(write(currentPlayer, &code, sizeof(int)) < 0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
+            if(write(currentPlayer, message, strlen(message)) < 0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
+            continue;
+        }
+        if (board[line - 1][column - 1] != ' ')
+        {
+            char message[100];
+            strcpy(message, "Pozitie ocupata!\n");
+            int code = 0;
+            if(write(currentPlayer, &code, sizeof(int)) < 0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
+            if(write(currentPlayer, message, strlen(message)) < 0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
+            continue;
+        }
+        break;
+    }
+
     board[line - 1][column - 1] = symbol;
+
+    if (checkWinner(board) == symbol)
+    {
+        sendBoard(otherPlayer, board, 2);
+        sendBoard(currentPlayer, board, 1);
+        close(currentPlayer);
+        close(otherPlayer);
+        close(sockfd);
+        exit(0);
+    }
+    else
+        sendBoard(otherPlayer, board, 0);
 }
 
 int main(int argc, char *argv[])
 {
-    int firstPlayerFd, secondPlayerFd, newsockfd, newsockfd2, portno;
-    char buffer[256];
-    struct sockaddr_in serv_addr, cli_addr;
-    int n, pid;
+    int firstPlayerFd, secondPlayerFd, portno;
+    struct sockaddr_in serv_addr;
     char board[4][4];
 
     if (argc < 2)
@@ -177,7 +260,6 @@ int main(int argc, char *argv[])
 
     initBoard(board);
 
-    /* First call to socket() function */
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
@@ -186,7 +268,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    /* Initialize socket structure */
+    // Initialize socket structure
     bzero((char *)&serv_addr, sizeof(serv_addr));
     portno = atoi(argv[1]);
 
@@ -194,20 +276,17 @@ int main(int argc, char *argv[])
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
 
-    /* Now bind the host address using bind() call.*/
+    // Bind the host address
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         perror("ERROR on binding");
         exit(1);
     }
 
-    /* Now start listening for the clients, here process will
-     * go in sleep mode and will wait for the incoming connection
-     */
-
+    // Start listening for players
     listen(sockfd, 0);
 
-    /* Accept actual connection from the clients */
+    // Connect players
     printf("Waiting for players...\n");
     firstPlayerFd = connectPlayer(0);
     secondPlayerFd = connectPlayer(1);
@@ -217,74 +296,12 @@ int main(int argc, char *argv[])
 
     // Select order
     computeOrder(&firstPlayerFd, &secondPlayerFd);
-    
+
     while (1)
     {
-        int line, column;
-        if(read(firstPlayerFd, &line, sizeof(int)) < 0) {
-            perror("ERROR reading from socket");
-            exit(1);
-        }
-        if(read(firstPlayerFd, &column, sizeof(int)) < 0) {
-            perror("ERROR reading from socket");
-            exit(1);
-        }
-
-        if(checkPosition(line, column) == 0) {
-            char message[100];
-            strcpy(message, "Pozitie invalida, incearca alta!");
-            write(firstPlayerFd, message, strlen(message));
-            continue;
-        }
-
-        if(emptyPosition(line, column, board) == 0) {
-            char message[100];
-            strcpy(message, "Pozitie ocupata!");
-            write(firstPlayerFd, message, strlen(message));
-            continue;
-        }
-
-        applyMove(line, column, board, 'x');
-
-        printBoard(1, board, "");
-        printf("\n");
-
-        if(checkWinner(board) == 2) {
-            printf("Ai pierdut!\n");
-            printBoard(firstPlayerFd, board, "Ai castigat!");
-            break;
-        }
-
-        if((checkWinner(board) == 0) && (checkBoardFull(board) == 1)){
-            printf("Egalitate!\n");
-            printBoard(firstPlayerFd, board, "Egalitate!");
-            break;
-        }
-
-        while(1) {
-            printf("Linie: ");scanf("%d", &line);
-            printf("Coloana: ");scanf("%d", &column);
-            if(checkPosition(line, column) == 0) {
-                printf("Pozitie invalida, incearca alta!\n");
-            } else if(emptyPosition(line, column, board) == 0) {
-                printf("Pozitie ocupata!\n");
-            } else
-                break;
-        }
-
-        applyMove(line, column, board, 'o');
-
-        if(checkWinner(board) == 1) {
-            printBoard(1, board, "Ai castigat!\n");
-            printBoard(firstPlayerFd, board, "Ai pierdut!");
-            break;
-        }
-
-        printBoard(firstPlayerFd, board, "");
+        handlePlayerMove(firstPlayerFd, secondPlayerFd, board, 'x');    // Handle first player move
+        handlePlayerMove(secondPlayerFd, firstPlayerFd, board, 'o');    // Handle second player move
     }
-
-    close(firstPlayerFd);
-    close(sockfd);
 
     return 0;
 }

@@ -6,15 +6,60 @@
 
 #include <string.h>
 
-int readBoard(int fd)
+// Read the message from the server
+int readMessage(int fd)
 {
+   int code;
+   read(fd, &code, sizeof(int));
    char buffer[100];
    bzero(buffer, 100);
    read(fd, buffer, 100);
-   printf("%s\n", buffer);
-   if (strstr(buffer, "Ai castigat") || strstr(buffer, "Ai pierdut") || strstr(buffer, "Egalitate"))
+   printf("\n%s", buffer);
+   switch (code)
+   {
+   case 1:
+      printf("Ai castigat!\n");
+      break;
+   case 2:
+      printf("Ai pierdut!\n");
+      break;
+   default:
+      break;
+   }
+   if (code)
       return 0;
    return 1;
+}
+
+// Read a number from stdin. Read until a number is entered
+int readNumber(char message[]) {
+   int number;
+   char line[20];
+   printf("%s", message);
+   while(fgets(line, 20, stdin) != 0)
+      if(sscanf(line, "%d", &number) != 0)
+         return number;
+      else {
+         printf("Nu este numar, mai incearca!\n");
+         printf("%s", message);
+      }
+}
+
+// Write position to server
+void writePosition(int sockfd) {
+   int position;
+   position = readNumber("Linie: ");
+   if (write(sockfd, &position, sizeof(int)) < 0)
+   {
+      perror("ERROR writing to socket");
+      exit(1);
+   }
+   position = readNumber("Coloana: ");
+   if (write(sockfd, &position, sizeof(int)) < 0)
+   {
+      perror("ERROR writing to socket");
+      exit(1);
+   }
 }
 
 int main(int argc, char *argv[])
@@ -69,7 +114,6 @@ int main(int argc, char *argv[])
       printf("Eroare la citire mesaj server!\n");
       exit(1);
    }
-
    switch (cod)
    {
    case 0:
@@ -102,29 +146,22 @@ int main(int argc, char *argv[])
       break;
    }
 
+   //Start play
    while (1)
    {
       bzero(buffer, 256);
-
-      int position;
-      printf("Linie: ");
-      scanf("%d", &position);
-      if (write(sockfd, &position, sizeof(int)) < 0)
+      if (cod == 0)
       {
-         perror("ERROR writing to socket");
-         exit(1);
-      }
-      printf("Coloana: ");
-      scanf("%d", &position);
-      if (write(sockfd, &position, sizeof(int)) < 0)
-      {
-         perror("ERROR writing to socket");
-         exit(1);
-      }
+         writePosition(sockfd);
 
-      int final = readBoard(sockfd);
-      if (final == 0)
-         break;
+         if(readMessage(sockfd) == 0)
+            break;
+      } else {
+         if(readMessage(sockfd) == 0)
+            break;
+
+         writePosition(sockfd);
+      }
    }
 
    close(sockfd);
