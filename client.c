@@ -85,6 +85,23 @@ int main(int argc, char *argv[])
       break;
    }
 
+   // Read order
+   if (read(sockfd, &cod, sizeof(int)) < 0)
+   {
+      printf("Eroare la citire mesaj server!\n");
+      exit(1);
+   }
+   switch (cod)
+   {
+   case 0:
+      printf("Tu incepi, simbolul tau este 'x'\n");
+      break;
+   case 1:
+      printf("Adversarul incepe, simbolul tau este 'o'\n");
+   default:
+      break;
+   }
+
    while (1)
    {
       bzero(buffer, 256);

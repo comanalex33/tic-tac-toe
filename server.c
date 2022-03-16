@@ -62,6 +62,33 @@ void rejectConnections()
     }
 }
 
+/*
+    Establish the order of the players. The order will be determined randomly
+*/
+void computeOrder(int *firstPlayer, int *secondPlayer)
+{
+    srand(time(NULL));
+    int code = rand() % 2;
+
+    if (write(*firstPlayer, &code, sizeof(int)) < 0)
+    {
+        perror("ERROR writing to first player!\n");
+        exit(2);
+    }
+    code = 1 - code;
+    if (write(*secondPlayer, &code, sizeof(int)) < 0)
+    {
+        perror("ERROR writing to second player!\n");
+        exit(2);
+    }
+    if (code == 0)
+    {
+        int aux = *firstPlayer;
+        *firstPlayer = *secondPlayer;
+        *secondPlayer = aux;
+    }
+}
+
 void initBoard(char board[][4])
 {
     for (int i = 0; i < 3; i++)
@@ -187,6 +214,9 @@ int main(int argc, char *argv[])
 
     // Reject the rest of connections
     rejectConnections();
+
+    // Select order
+    computeOrder(&firstPlayerFd, &secondPlayerFd);
     
     while (1)
     {
