@@ -62,6 +62,29 @@ int main(int argc, char *argv[])
       exit(1);
    }
 
+   // Get connection status
+   int cod;
+   if (read(sockfd, &cod, sizeof(int)) < 0)
+   {
+      printf("Eroare la citire mesaj server!\n");
+      exit(1);
+   }
+
+   switch (cod)
+   {
+   case 0:
+      printf("Conectat, se asteapta inca un jucator...\n");
+      break;
+   case 1:
+      printf("Conectat, incepe jocul!\n");
+      break;
+   case 2:
+      printf("Conexiune refuzata!\n");
+      exit(1);
+   default:
+      break;
+   }
+
    while (1)
    {
       bzero(buffer, 256);

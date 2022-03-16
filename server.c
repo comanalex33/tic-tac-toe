@@ -7,6 +7,61 @@
 
 #include <string.h>
 
+int sockfd;
+
+/* 
+    Connect player function
+    - code : a specifier used to identify the state of the player
+      0 - first player
+      1 - second player
+      2 - rejected player, already 2 players connected 
+*/
+int connectPlayer(int code)
+{
+    int cli_addr, clilen;
+    clilen = sizeof(cli_addr);
+
+    int playerFd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
+    if (playerFd < 0)
+    {
+        perror("ERROR on accept");
+        exit(1);
+    }
+    else
+    {
+        printf("Player connected!\n");
+        if(write(playerFd, &code, sizeof(int)) < 0) {
+            perror("ERROR writing to client");
+            exit(2);
+        }
+    }
+
+    return playerFd;
+}
+
+/*  
+    Reject player connections. 
+    This creates a process that runs parallel to the rest of the code 
+    This process will accept connections and close them immediately
+*/
+void rejectConnections()
+{
+    int playerFd, cli_addr, clilen;
+    clilen = sizeof(cli_addr);
+    int parallelProcess = fork();
+    if (parallelProcess == 0)
+    {
+        while (playerFd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen))
+        {
+            int cod = 2;
+            if(write(playerFd, &cod, sizeof(int)) < 0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
+        }
+    }
+}
+
 void initBoard(char board[][4])
 {
     for (int i = 0; i < 3; i++)
@@ -81,7 +136,7 @@ void applyMove(int line, int column, char board[][4], char symbol) {
 
 int main(int argc, char *argv[])
 {
-    int sockfd, newsockfd, newsockfd2, portno, clilen;
+    int firstPlayerFd, secondPlayerFd, newsockfd, newsockfd2, portno;
     char buffer[256];
     struct sockaddr_in serv_addr, cli_addr;
     int n, pid;
@@ -124,26 +179,23 @@ int main(int argc, char *argv[])
      */
 
     listen(sockfd, 0);
-    clilen = sizeof(cli_addr);
 
-    /* Accept actual connection from the client */
-    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
-    // newsockfd2 = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
+    /* Accept actual connection from the clients */
+    printf("Waiting for players...\n");
+    firstPlayerFd = connectPlayer(0);
+    secondPlayerFd = connectPlayer(1);
 
-    if (newsockfd < 0)
-    {
-        perror("ERROR on accept");
-        exit(1);
-    }
+    // Reject the rest of connections
+    rejectConnections();
     
     while (1)
     {
         int line, column;
-        if(read(newsockfd, &line, sizeof(int)) < 0) {
+        if(read(firstPlayerFd, &line, sizeof(int)) < 0) {
             perror("ERROR reading from socket");
             exit(1);
         }
-        if(read(newsockfd, &column, sizeof(int)) < 0) {
+        if(read(firstPlayerFd, &column, sizeof(int)) < 0) {
             perror("ERROR reading from socket");
             exit(1);
         }
@@ -151,14 +203,14 @@ int main(int argc, char *argv[])
         if(checkPosition(line, column) == 0) {
             char message[100];
             strcpy(message, "Pozitie invalida, incearca alta!");
-            write(newsockfd, message, strlen(message));
+            write(firstPlayerFd, message, strlen(message));
             continue;
         }
 
         if(emptyPosition(line, column, board) == 0) {
             char message[100];
             strcpy(message, "Pozitie ocupata!");
-            write(newsockfd, message, strlen(message));
+            write(firstPlayerFd, message, strlen(message));
             continue;
         }
 
@@ -169,13 +221,13 @@ int main(int argc, char *argv[])
 
         if(checkWinner(board) == 2) {
             printf("Ai pierdut!\n");
-            printBoard(newsockfd, board, "Ai castigat!");
+            printBoard(firstPlayerFd, board, "Ai castigat!");
             break;
         }
 
         if((checkWinner(board) == 0) && (checkBoardFull(board) == 1)){
             printf("Egalitate!\n");
-            printBoard(newsockfd, board, "Egalitate!");
+            printBoard(firstPlayerFd, board, "Egalitate!");
             break;
         }
 
@@ -194,14 +246,14 @@ int main(int argc, char *argv[])
 
         if(checkWinner(board) == 1) {
             printBoard(1, board, "Ai castigat!\n");
-            printBoard(newsockfd, board, "Ai pierdut!");
+            printBoard(firstPlayerFd, board, "Ai pierdut!");
             break;
         }
 
-        printBoard(newsockfd, board, "");
+        printBoard(firstPlayerFd, board, "");
     }
 
-    close(newsockfd);
+    close(firstPlayerFd);
     close(sockfd);
 
     return 0;
