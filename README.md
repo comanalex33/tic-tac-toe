@@ -2,6 +2,21 @@
 
 There is created a multiplayer tic-tac-toe game using C sockets. To the server can connect only 2 players and the rest of the players which are trying to connect to their game will be rejected.
 
+### How to play
+
+Compile code:
+  * server: `gcc -o server server.c`
+  * client: `gcc -o client client.c`
+
+Start game:
+  * server
+    * `./server port_number`
+    * Example: `./server 8000`
+  * client
+    * `./client server_hostname/server_ip server_port`
+    * If you are trying this locally, server ip is 127.0.0.1 (localhost)
+    * Example: `./client 127.0.0.1 8000`
+
 ### General description
 
 The server have the following functionalities:
