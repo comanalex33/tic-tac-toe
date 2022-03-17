@@ -174,15 +174,13 @@ void sendBoard(int fd, char board[][4], int code)
 }
 
 /*
-    This is used to handle current player's move
+    This is used to make current player's move
     Steps:
      - Read symbol from the player
      - Check if this position is valid
-     - Apply move and check if this is the final of the game
-     - Send board to the other player
+     - Apply move
 */
-void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char symbol)
-{
+void makeMove(int currentPlayer, char board[][4], char symbol) {
     int line, column;
 
     while (1)
@@ -201,7 +199,7 @@ void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char 
         if (checkPosition(line, column) == 0)
         {
             char message[100];
-            strcpy(message, "Pozitie invalida, incearca alta!\n");
+            strcpy(message, "Invalid position, try another!\n");
             int code = 0;
             if(write(currentPlayer, &code, sizeof(int)) < 0) {
                 perror("ERROR writing to client");
@@ -216,7 +214,7 @@ void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char 
         if (board[line - 1][column - 1] != ' ')
         {
             char message[100];
-            strcpy(message, "Pozitie ocupata!\n");
+            strcpy(message, "Occupied position!\n");
             int code = 0;
             if(write(currentPlayer, &code, sizeof(int)) < 0) {
                 perror("ERROR writing to client");
@@ -232,6 +230,18 @@ void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char 
     }
 
     board[line - 1][column - 1] = symbol;
+}
+
+/*
+    This is used to handle current player's move
+    Steps:
+     - Apply move using previous function 
+     - Check if this is the final of the game
+     - Send board to the other player
+*/
+void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char symbol)
+{
+    makeMove(currentPlayer, board, symbol);
 
     if (checkWinner(board) == symbol)
     {
@@ -242,6 +252,14 @@ void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char 
         close(sockfd);
         exit(0);
     }
+    else if(checkWinner(board) == 0 && checkBoardFull(board) == 1) {
+        sendBoard(otherPlayer, board, 3);
+        sendBoard(currentPlayer, board, 3);
+        close(currentPlayer);
+        close(otherPlayer);
+        close(sockfd);
+        exit(0);
+    } 
     else
         sendBoard(otherPlayer, board, 0);
 }

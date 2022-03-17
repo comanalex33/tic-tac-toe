@@ -18,10 +18,13 @@ int readMessage(int fd)
    switch (code)
    {
    case 1:
-      printf("Ai castigat!\n");
+      printf("You won!\n");
       break;
    case 2:
-      printf("Ai pierdut!\n");
+      printf("You lost!\n");
+      break;
+   case 3:
+      printf("Draw\n");
       break;
    default:
       break;
@@ -40,7 +43,7 @@ int readNumber(char message[]) {
       if(sscanf(line, "%d", &number) != 0)
          return number;
       else {
-         printf("Nu este numar, mai incearca!\n");
+         printf("It's not a number, keep tryng!\n");
          printf("%s", message);
       }
 }
@@ -48,13 +51,13 @@ int readNumber(char message[]) {
 // Write position to server
 void writePosition(int sockfd) {
    int position;
-   position = readNumber("Linie: ");
+   position = readNumber("Line: ");
    if (write(sockfd, &position, sizeof(int)) < 0)
    {
       perror("ERROR writing to socket");
       exit(1);
    }
-   position = readNumber("Coloana: ");
+   position = readNumber("Column: ");
    if (write(sockfd, &position, sizeof(int)) < 0)
    {
       perror("ERROR writing to socket");
@@ -111,19 +114,19 @@ int main(int argc, char *argv[])
    int cod;
    if (read(sockfd, &cod, sizeof(int)) < 0)
    {
-      printf("Eroare la citire mesaj server!\n");
+      printf("Error reading from server!\n");
       exit(1);
    }
    switch (cod)
    {
    case 0:
-      printf("Conectat, se asteapta inca un jucator...\n");
+      printf("Connected, waiting for one more player...\n");
       break;
    case 1:
-      printf("Conectat, incepe jocul!\n");
+      printf("Connected, the game will start!\n");
       break;
    case 2:
-      printf("Conexiune refuzata!\n");
+      printf("Connection refused!\n");
       exit(1);
    default:
       break;
@@ -132,16 +135,16 @@ int main(int argc, char *argv[])
    // Read order
    if (read(sockfd, &cod, sizeof(int)) < 0)
    {
-      printf("Eroare la citire mesaj server!\n");
+      printf("Error reading from server!\n");
       exit(1);
    }
    switch (cod)
    {
    case 0:
-      printf("Tu incepi, simbolul tau este 'x'\n");
+      printf("You start, your symbol is 'x'\n");
       break;
    case 1:
-      printf("Adversarul incepe, simbolul tau este 'o'\n");
+      printf("The other player starts, your symbol is 'o'\n");
    default:
       break;
    }
