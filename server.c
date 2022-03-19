@@ -69,16 +69,30 @@ void computeOrder(int *firstPlayer, int *secondPlayer)
     srand(time(NULL));
     int code = rand() % 2;
 
-    if (write(*firstPlayer, &code, sizeof(int)) < 0)
+    int statusWrite = write(*firstPlayer, &code, sizeof(int));
+    if (statusWrite <= 0)
     {
-        perror("ERROR writing to first player!\n");
-        exit(2);
+        if(statusWrite < 0) {
+            perror("ERROR writing to first player!\n");
+            exit(2);
+        } else {
+            printf("One of the players left the game\n");
+            shutdown(*secondPlayer, SHUT_RDWR);
+            close(*secondPlayer);
+        }
     }
     code = 1 - code;
-    if (write(*secondPlayer, &code, sizeof(int)) < 0)
+    statusWrite = write(*secondPlayer, &code, sizeof(int));
+    if (statusWrite <= 0)
     {
-        perror("ERROR writing to second player!\n");
-        exit(2);
+        if(statusWrite < 0) {
+            perror("ERROR writing to second player!\n");
+            exit(2);
+        } else {
+            printf("One of the players left the game\n");
+            shutdown(*firstPlayer, SHUT_RDWR);
+            close(*firstPlayer);
+        }
     }
     if (code == 0)
     {
@@ -134,18 +148,6 @@ int checkBoardFull(char board[][4]){
     return 1;
 }
 
-void printBoard(int fd, char board[][4], char message[])
-{
-    char line[100];
-    bzero(line, 100);
-    sprintf(line, "| %c | %c | %c |\n| %c | %c | %c |\n| %c | %c | %c |\n%s", 
-        board[0][0], board[0][1], board[0][2],
-        board[1][0], board[1][1], board[1][2],
-        board[2][0], board[2][1], board[2][2],
-        message);
-    write(fd, line, strlen(line));
-}
-
 /*
     Function used to send the board to the client
     At the beggining will send a code
@@ -154,11 +156,18 @@ void printBoard(int fd, char board[][4], char message[])
       2 - this player is the losser
       3 - equality
 */
-void sendBoard(int fd, char board[][4], int code)
+void sendBoard(int currentPlayer, int otherPlayer, char board[][4], int code)
 {
-    if(write(fd, &code, sizeof(int)) < 0) {
-        perror("ERROR writing to client");
-        exit(2);
+    int statusWrite = write(currentPlayer, &code, sizeof(int));
+    if(statusWrite <= 0) {
+        if(statusWrite < 0) {
+            perror("ERROR writing to client");
+            exit(2);
+        } else {
+            printf("One of the players left the game\n");
+            shutdown(otherPlayer, SHUT_RDWR);
+            close(otherPlayer);
+        }
     }
 
     char line[100];
@@ -167,9 +176,44 @@ void sendBoard(int fd, char board[][4], int code)
             board[0][0], board[0][1], board[0][2],
             board[1][0], board[1][1], board[1][2],
             board[2][0], board[2][1], board[2][2]);
-    if(write(fd, line, strlen(line)) < 0) {
-        perror("ERROR writing to client");
-        exit(2);
+    statusWrite = write(currentPlayer, line, strlen(line));
+    if(statusWrite <= 0) {
+        if(statusWrite < 0) {
+            perror("ERROR writing to client");
+            exit(2);
+        } else {
+            printf("One of the players left the game\n");
+            shutdown(otherPlayer, SHUT_RDWR);
+            close(otherPlayer);
+        }
+    }
+}
+
+void writeError(int currentPlayer, int otherPlayer, char message[]) {
+    int code = 0;
+    int statusWrite = write(currentPlayer, &code, sizeof(int));
+    if(statusWrite <= 0) {
+        if(statusWrite < 0) {
+            perror("ERROR writing to client");
+            exit(2);
+        } else {
+            printf("One of the players left the game\n");
+            shutdown(otherPlayer, SHUT_RDWR);
+            close(otherPlayer);
+            exit(1);
+        }
+    }
+    statusWrite = write(currentPlayer, message, strlen(message));
+    if(statusWrite <= 0) {
+        if(statusWrite < 0) {
+            perror("ERROR writing to client");
+            exit(2);
+        } else {
+            printf("One of the players left the game\n");
+            shutdown(otherPlayer, SHUT_RDWR);
+            close(otherPlayer);
+            exit(1);
+        }
     }
 }
 
@@ -180,50 +224,46 @@ void sendBoard(int fd, char board[][4], int code)
      - Check if this position is valid
      - Apply move
 */
-void makeMove(int currentPlayer, char board[][4], char symbol) {
+void makeMove(int currentPlayer,  int otherPlayer, char board[][4], char symbol) {
     int line, column;
 
     while (1)
     {
-        if (read(currentPlayer, &line, sizeof(int)) < 0)
+        int statusRead = read(currentPlayer, &line, sizeof(int));
+        if (statusRead <= 0)
         {
-            perror("ERROR reading from socket");
-            exit(1);
+            if(statusRead < 0) {
+                perror("ERROR reading from socket");
+                exit(1);
+            } else {
+                printf("One of the players left the game\n");
+                shutdown(otherPlayer, SHUT_RDWR);
+                close(otherPlayer);
+                exit(1);
+            }
         }
-        if (read(currentPlayer, &column, sizeof(int)) < 0)
+        statusRead = read(currentPlayer, &column, sizeof(int));
+        if (statusRead <= 0)
         {
-            perror("ERROR reading from socket");
-            exit(1);
+            if(statusRead < 0) {
+                perror("ERROR reading from socket");
+                exit(1);
+            } else {
+                printf("One of the players left the game\n");
+                shutdown(otherPlayer, SHUT_RDWR);
+                close(otherPlayer);
+                exit(1);
+            }
         }
 
         if (checkPosition(line, column) == 0)
         {
-            char message[100];
-            strcpy(message, "Invalid position, try another!\n");
-            int code = 0;
-            if(write(currentPlayer, &code, sizeof(int)) < 0) {
-                perror("ERROR writing to client");
-                exit(2);
-            }
-            if(write(currentPlayer, message, strlen(message)) < 0) {
-                perror("ERROR writing to client");
-                exit(2);
-            }
+            writeError(currentPlayer, otherPlayer, "Invalid position, try another!\n");
             continue;
         }
         if (board[line - 1][column - 1] != ' ')
         {
-            char message[100];
-            strcpy(message, "Occupied position!\n");
-            int code = 0;
-            if(write(currentPlayer, &code, sizeof(int)) < 0) {
-                perror("ERROR writing to client");
-                exit(2);
-            }
-            if(write(currentPlayer, message, strlen(message)) < 0) {
-                perror("ERROR writing to client");
-                exit(2);
-            }
+            writeError(currentPlayer, otherPlayer, "Occupied position!\n");
             continue;
         }
         break;
@@ -241,27 +281,27 @@ void makeMove(int currentPlayer, char board[][4], char symbol) {
 */
 void handlePlayerMove(int currentPlayer, int otherPlayer, char board[][4], char symbol)
 {
-    makeMove(currentPlayer, board, symbol);
+    makeMove(currentPlayer, otherPlayer, board, symbol);
 
     if (checkWinner(board) == symbol)
     {
-        sendBoard(otherPlayer, board, 2);
-        sendBoard(currentPlayer, board, 1);
+        sendBoard(otherPlayer, currentPlayer, board, 2);
+        sendBoard(currentPlayer, otherPlayer, board, 1);
         close(currentPlayer);
         close(otherPlayer);
         close(sockfd);
         exit(0);
     }
     else if(checkWinner(board) == 0 && checkBoardFull(board) == 1) {
-        sendBoard(otherPlayer, board, 3);
-        sendBoard(currentPlayer, board, 3);
+        sendBoard(otherPlayer, currentPlayer, board, 3);
+        sendBoard(currentPlayer, otherPlayer, board, 3);
         close(currentPlayer);
         close(otherPlayer);
         close(sockfd);
         exit(0);
     } 
     else
-        sendBoard(otherPlayer, board, 0);
+        sendBoard(otherPlayer, currentPlayer, board, 0);
 }
 
 int main(int argc, char *argv[])
