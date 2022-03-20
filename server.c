@@ -70,8 +70,19 @@ void checkCommunication(int status, int otherPlayer){
             exit(2);
         } else {
             printf("One of the players left the game\n");
-            write(otherPlayer, &code, sizeof(int));
-            write(otherPlayer, line, strlen(line));
+            if(write(otherPlayer, &code, sizeof(int)) <0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
+            int size = strlen(line);
+            if(write(otherPlayer, &size, sizeof(int)) < 0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
+            if(write(otherPlayer, line, strlen(line)) < 0) {
+                perror("ERROR writing to client");
+                exit(2);
+            }
             shutdown(otherPlayer, SHUT_RDWR);
             close(otherPlayer);
             exit(1);
@@ -88,11 +99,11 @@ void computeOrder(int *firstPlayer, int *secondPlayer)
     int code = rand() % 2;
 
     int statusWrite = write(*firstPlayer, &code, sizeof(int));
-    checkCommunication(statusWrite, &secondPlayer);
+    checkCommunication(statusWrite, *secondPlayer);
 
     code = 1 - code;
     statusWrite = write(*secondPlayer, &code, sizeof(int));
-    checkCommunication(statusWrite, &firstPlayer);
+    checkCommunication(statusWrite, *firstPlayer);
 
     if (code == 0)
     {
@@ -168,6 +179,9 @@ void sendBoard(int currentPlayer, int otherPlayer, char board[][4], int code)
             board[0][0], board[0][1], board[0][2],
             board[1][0], board[1][1], board[1][2],
             board[2][0], board[2][1], board[2][2]);
+    int size = strlen(line);
+    statusWrite = write(currentPlayer, &size, sizeof(int));
+    checkCommunication(statusWrite, otherPlayer);
     statusWrite = write(currentPlayer, line, strlen(line));
     checkCommunication(statusWrite, otherPlayer);
 }
@@ -177,6 +191,9 @@ void writeError(int currentPlayer, int otherPlayer, char message[]) {
     int statusWrite = write(currentPlayer, &code, sizeof(int));
     checkCommunication(statusWrite, otherPlayer);
 
+    int size = strlen(message);
+    statusWrite = write(currentPlayer, &size, sizeof(int));
+    checkCommunication(statusWrite, otherPlayer);
     statusWrite = write(currentPlayer, message, strlen(message));
     checkCommunication(statusWrite, otherPlayer);
 }

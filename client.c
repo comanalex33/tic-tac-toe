@@ -10,10 +10,24 @@
 int readMessage(int fd)
 {
    int code;
-   read(fd, &code, sizeof(int));
+   if(read(fd, &code, sizeof(int)) < 0) {
+      perror("Error reading from server\n");
+      exit(1);
+   }
+
+   int size;
+   if(read(fd, &size, sizeof(int)) < 0) {
+      perror("Error reading from server\n");
+      exit(1);
+   }
+
    char buffer[100];
    bzero(buffer, 100);
-   read(fd, buffer, 100);
+   if(read(fd, buffer, size) < 0) {
+      perror("Error reading from server\n");
+      exit(1);
+   }
+   
    printf("\n%s", buffer);
    switch (code)
    {
