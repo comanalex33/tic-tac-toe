@@ -1,6 +1,6 @@
 # tic-tac-toe
 
-There is created a multiplayer tic-tac-toe game using C sockets. To the server can connect only 2 players and the rest of the players which are trying to connect to their game will be rejected.
+This is a multiplayer tic-tac-toe game using C sockets. Only 2 players can connect to the server, the rest will be rejected is they are trying to connect to the game.
 
 ### How to play
 
@@ -19,9 +19,9 @@ Start game:
 
 ### General description
 
-The server have the following functionalities:
+The server has the following functionalities:
   * Handle initial connection and decide who will start
-  * Keep the board in the memory
+  * Store the board
   * Handle player moves
   * Send the board and other messages to the clients
 
@@ -50,14 +50,15 @@ The client will read these messages and then the game starts
 
 ##### Final step - game
 
-At this step, server will read the moves of the players, will process them and will send back specific messages.
+In this step, the server will read the moves of the players, process them and send back specific messages.
 
-The server will send every time a code (integer) and a message (string). The message can be an informing message or the board.
+The server will always send a code (integer) and a message (string). The message can be an information or the board.
 
 Code explained:
   * 0 - The game will continue, it's not finished
   * 1 - You won
   * 2 - You lost
   * 3 - The game ended in a draw
+  * 4 - The requestet position is invalid/ occupied
 
-The client will read server's messages and will make specific actions in every case.
+The client will read the server's messages and take specific actions in every case.

@@ -29,7 +29,7 @@ int readMessage(int fd)
    default:
       break;
    }
-   if (code)
+   if (code && code != 4)
       return 0;
    return 1;
 }

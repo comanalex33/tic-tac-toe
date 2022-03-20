@@ -155,6 +155,7 @@ int checkBoardFull(char board[][4]){
       1 - this player is the winner
       2 - this player is the losser
       3 - equality
+      4 - invalid/ occupied position
 */
 void sendBoard(int currentPlayer, int otherPlayer, char board[][4], int code)
 {
@@ -190,7 +191,7 @@ void sendBoard(int currentPlayer, int otherPlayer, char board[][4], int code)
 }
 
 void writeError(int currentPlayer, int otherPlayer, char message[]) {
-    int code = 0;
+    int code = 4;
     int statusWrite = write(currentPlayer, &code, sizeof(int));
     if(statusWrite <= 0) {
         if(statusWrite < 0) {
