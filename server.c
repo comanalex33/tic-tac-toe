@@ -61,6 +61,24 @@ void rejectConnections()
     }
 }
 
+void checkCommunication(int status, int otherPlayer){
+    int code = 1;
+    char line[100] = "The other player left the game\n";
+    if(status <= 0) {
+        if(status < 0) {
+            perror("ERROR writing to client");
+            exit(2);
+        } else {
+            printf("One of the players left the game\n");
+            write(otherPlayer, &code, sizeof(int));
+            write(otherPlayer, line, strlen(line));
+            shutdown(otherPlayer, SHUT_RDWR);
+            close(otherPlayer);
+            exit(1);
+        }
+    }
+}
+
 /*
     Establish the order of the players. The order will be determined randomly
 */
@@ -70,30 +88,12 @@ void computeOrder(int *firstPlayer, int *secondPlayer)
     int code = rand() % 2;
 
     int statusWrite = write(*firstPlayer, &code, sizeof(int));
-    if (statusWrite <= 0)
-    {
-        if(statusWrite < 0) {
-            perror("ERROR writing to first player!\n");
-            exit(2);
-        } else {
-            printf("One of the players left the game\n");
-            shutdown(*secondPlayer, SHUT_RDWR);
-            close(*secondPlayer);
-        }
-    }
+    checkCommunication(statusWrite, &secondPlayer);
+
     code = 1 - code;
     statusWrite = write(*secondPlayer, &code, sizeof(int));
-    if (statusWrite <= 0)
-    {
-        if(statusWrite < 0) {
-            perror("ERROR writing to second player!\n");
-            exit(2);
-        } else {
-            printf("One of the players left the game\n");
-            shutdown(*firstPlayer, SHUT_RDWR);
-            close(*firstPlayer);
-        }
-    }
+    checkCommunication(statusWrite, &firstPlayer);
+
     if (code == 0)
     {
         int aux = *firstPlayer;
@@ -160,16 +160,7 @@ int checkBoardFull(char board[][4]){
 void sendBoard(int currentPlayer, int otherPlayer, char board[][4], int code)
 {
     int statusWrite = write(currentPlayer, &code, sizeof(int));
-    if(statusWrite <= 0) {
-        if(statusWrite < 0) {
-            perror("ERROR writing to client");
-            exit(2);
-        } else {
-            printf("One of the players left the game\n");
-            shutdown(otherPlayer, SHUT_RDWR);
-            close(otherPlayer);
-        }
-    }
+    checkCommunication(statusWrite, otherPlayer);
 
     char line[100];
     bzero(line, 100);
@@ -178,44 +169,16 @@ void sendBoard(int currentPlayer, int otherPlayer, char board[][4], int code)
             board[1][0], board[1][1], board[1][2],
             board[2][0], board[2][1], board[2][2]);
     statusWrite = write(currentPlayer, line, strlen(line));
-    if(statusWrite <= 0) {
-        if(statusWrite < 0) {
-            perror("ERROR writing to client");
-            exit(2);
-        } else {
-            printf("One of the players left the game\n");
-            shutdown(otherPlayer, SHUT_RDWR);
-            close(otherPlayer);
-        }
-    }
+    checkCommunication(statusWrite, otherPlayer);
 }
 
 void writeError(int currentPlayer, int otherPlayer, char message[]) {
     int code = 4;
     int statusWrite = write(currentPlayer, &code, sizeof(int));
-    if(statusWrite <= 0) {
-        if(statusWrite < 0) {
-            perror("ERROR writing to client");
-            exit(2);
-        } else {
-            printf("One of the players left the game\n");
-            shutdown(otherPlayer, SHUT_RDWR);
-            close(otherPlayer);
-            exit(1);
-        }
-    }
+    checkCommunication(statusWrite, otherPlayer);
+
     statusWrite = write(currentPlayer, message, strlen(message));
-    if(statusWrite <= 0) {
-        if(statusWrite < 0) {
-            perror("ERROR writing to client");
-            exit(2);
-        } else {
-            printf("One of the players left the game\n");
-            shutdown(otherPlayer, SHUT_RDWR);
-            close(otherPlayer);
-            exit(1);
-        }
-    }
+    checkCommunication(statusWrite, otherPlayer);
 }
 
 /*
@@ -231,31 +194,10 @@ void makeMove(int currentPlayer,  int otherPlayer, char board[][4], char symbol)
     while (1)
     {
         int statusRead = read(currentPlayer, &line, sizeof(int));
-        if (statusRead <= 0)
-        {
-            if(statusRead < 0) {
-                perror("ERROR reading from socket");
-                exit(1);
-            } else {
-                printf("One of the players left the game\n");
-                shutdown(otherPlayer, SHUT_RDWR);
-                close(otherPlayer);
-                exit(1);
-            }
-        }
+        checkCommunication(statusRead, otherPlayer);
+
         statusRead = read(currentPlayer, &column, sizeof(int));
-        if (statusRead <= 0)
-        {
-            if(statusRead < 0) {
-                perror("ERROR reading from socket");
-                exit(1);
-            } else {
-                printf("One of the players left the game\n");
-                shutdown(otherPlayer, SHUT_RDWR);
-                close(otherPlayer);
-                exit(1);
-            }
-        }
+        checkCommunication(statusRead, otherPlayer);
 
         if (checkPosition(line, column) == 0)
         {
